@@ -3,6 +3,9 @@ import cv2
 import math
 # import matplotlib.pyplot as plt
 
+def __init__():
+    d = [0, 20, 40, 60, 80, 100, 120, 140, 160]
+
 def gaussianSmoothing(image):
     """
     Applies 7x7 Gaussian Filter to the image by convolution operation
@@ -19,8 +22,44 @@ def gaussianSmoothing(image):
 
     return gaussianArr
 
+def histogramOfGradients(image, gradient,gradientAngle):
+
+    height = image.shape[0]
+    width = image.shape[1]
+    histogramArray = np.empty(shape=(height/8, width))
+
+    for i in range(4, height - 4):
+        for j in range(4, width - 4):
+            if gradientAngle[i][j] >= 170:
+                gradientAngle[i][j] -= 180
+                angle = gradientAngle[i][j]
+                if(angle not in d):
+                    low = floor_key(angle)
+                    high = ceil_key(angle)
+                    bin0 = (high - angle)/(high - low)
+                    bin1 = (angle - low)/(high-low)
+
+
+            low = floor_key()
+
+
+def floor_key(key):
+
+    if key in d:
+        return key
+    return max(k for k in d if k < key)
+
+def ceil_key(key):
+    if key in d:
+        return key
+    return min(k for k in d if k > key)
+
+def normalizedFeatureVector(histogramArray):
+
+
 def applyGaussianFilterAtPoint(imageData, row, column):
     sum = 0
+
     for i in range(row - 3, row + 4):
         for j in range(column - 3, column + 4):
             sum += gaussian_filter[i - row + 3][j - column + 3] * imageData[i][j]
@@ -29,7 +68,6 @@ def applyGaussianFilterAtPoint(imageData, row, column):
 
 def getGradientX(imgArr, height, width):
     """
-
     :param imgArr: NxM image to find the gradient
     :param height: height of the array
     :param width: width of the array
@@ -38,7 +76,7 @@ def getGradientX(imgArr, height, width):
     imageData = np.empty(shape=(height, width))
     for i in range(3, height - 5):
         for j in range(3, imgArr[i].size - 5):
-            if liesInUnderRegion(imgArr, i, j):
+            if liesUnder(imgArr, i, j):
                 imageData[i + 1][j + 1] = None
             else:
                 imageData[i + 1][j + 1] = prewittAtX(imgArr, i, j)
@@ -53,7 +91,7 @@ def getGradientY(imgArr, height, width):
     imageData = np.empty(shape=(height, width))
     for i in range(3, height - 5):
         for j in range(3, imgArr[i].size - 5):
-            if liesInUnderRegion(imgArr, i, j):
+            if liesUnder(imgArr, i, j):
                 imageData[i + 1][j + 1] = None
             else:
                 imageData[i + 1][j + 1] = prewittAtY(imgArr, i, j)
@@ -102,7 +140,7 @@ def getAngle(Gx, Gy, height, width):
             gradientData[i][j] = angle
     return gradientData
 
-def liesInUnderRegion(imgArr, i, j):
+def liesUnder(imgArr, i, j):
     return imgArr[i][j] == None or imgArr[i][j + 1] == None or imgArr[i][j - 1] == None or imgArr[i + 1][j] == None or \
            imgArr[i + 1][j + 1] == None or imgArr[i + 1][j - 1] == None or imgArr[i - 1][j] == None or \
            imgArr[i - 1][j + 1] == None or imgArr[i - 1][j - 1] == None
@@ -122,6 +160,8 @@ def prewittAtY(imageData, row, column):
         for j in range(0, 3):
             vertical += imageData[row + i, column + j] * prewittY[i, j]
     return vertical
+
+
 
 # Load the image
 img = cv2.imread('crop001030c.bmp')
