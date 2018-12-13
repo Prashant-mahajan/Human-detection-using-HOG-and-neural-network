@@ -11,12 +11,15 @@ class MLP:
         self.l2 = FCLayer(w2, b2, lr)
         self.a2 = Sigmoid()
 
+    # Mean square error function
     def MSE(self, prediction, target):
         return np.square(target - prediction).sum()/2
 
+    # Gradient of Mean square - to use in backpropogation
     def MSEGrad(self, prediction, target):
         return - 2.0 * (target - prediction)
 
+    # Shuffle the order so that model doesn't learn based-on input order
     def shuffle(self, X, y):
         idxs = np.arange(y.size)
         np.random.shuffle(idxs)
@@ -49,9 +52,13 @@ class MLP:
 
                 currentError += loss
 
-            if (prevError -(currentError/len(X))) < 0.005:
+            error = currentError / 20
+            differenceInError = (prevError - error)
+
+            # Stop the model if error is not updating
+            if 0 < differenceInError < 0.0005:
                 break
-            prevError = currentError/len(X)
+            prevError = error
 
 
     def predict(self, X):
@@ -67,7 +74,7 @@ class FCLayer:
 
     def __init__(self, w, b, lr):
         self.lr = lr
-        self.w = w  # Each column represents all the weights going into an output node
+        self.w = w
         self.b = b
 
     def forward(self, input):
@@ -76,8 +83,7 @@ class FCLayer:
         return activation
 
     def backward(self, gradients):
-        # Write backward pass here
-        # TODO: See if dot is required or something else!!!
+        # Backward pass
         w1 = self.x.transpose().dot(gradients)
         x1 = gradients.dot(self.w.transpose())
         self.w = self.w - self.lr * w1
@@ -90,13 +96,11 @@ class Sigmoid:
         None
 
     def forward(self, inputs):
-        # Write forward pass here
         input = self.getSigmoid(inputs)
         self.input = input
         return input
 
     def backward(self, gradients):
-        # Write backward pass here
         gradients = gradients * ((1 - self.input) * self.input)
         return gradients
 
@@ -113,6 +117,7 @@ class ReLU:
         self.input = input
         return input
 
+    # Perfrom backward update which will discard all the inputs except > 0
     def backward(self, gradients):
         gradients = gradients * (self.input)
         gradients = self.getReLU(gradients)
@@ -121,24 +126,30 @@ class ReLU:
 
         return gradients
 
+    # Make all inputs less than 0 as 0
     def getReLU(self, n):
         result = np.maximum(n, 0)
         return result
 
 def histogramOfGradients(image, gradient, gradientAngle):
+    """
+    This function returns an array containing histogram of gradients
+    """
     height = image.shape[0]
     width = image.shape[1]
     histogramArray = []
     result = []
     counter = 0
 
+    # For each block
     for row in range(0, height - 8, 8):
         for col in range(0, width - 8, 8):
 
+            # For each cell in that block
             for i in range(row, row + 16, 8):
                 for j in range(col, col + 16, 8):
-                    # TODO: check if greater than 170 or 180 ?
-                    if gradientAngle[i][j] >= 170:                 # <---------------
+
+                    if gradientAngle[i][j] >= 170:
                         gradientAngle[i][j] -= 180
                     histogramArray.append(getHistogramOfBin(i, j, gradientAngle, gradient))
                     counter += 1
@@ -153,11 +164,13 @@ def histogramOfGradients(image, gradient, gradientAngle):
                         histogramArray = []
 
     result = np.array(result)
+    # Reshape in 1-D
     result = result.reshape(1, result.shape[0] * result.shape[2])
     return result
 
 
 def getHistogramOfBin(i, j, gradientAngle, gradient):
+    # Computes the 9 element 1-D array of bins
     d = [0, 20, 40, 60, 80, 100, 120, 140, 160]
     histogramArray = np.zeros(shape=(1, 9))
 
@@ -185,7 +198,7 @@ def l2Normalized (histogramArray):
     array = np.square(histogramArray)
     dist = math.sqrt(array.sum())
 
-    if dist != 0:
+    if dist != 0.0:
         histogramArray = histogramArray / dist
     return histogramArray
 
@@ -390,6 +403,22 @@ def performHOGOperations(images):
 
     return X_train
 
+def prediction(N, X_train, X_test, result, layerSize):
+    lr = .0005
+
+    # Input layer
+    w1 = np.random.normal(0, .1, size=(N, layerSize))
+    b1 = np.random.normal(0, .1, size=(1, layerSize))
+
+    w2 = np.random.normal(0, .1, size=(layerSize, 1))
+    b2 = np.random.normal(0, .1, size=(1, 1))
+
+    mlp = MLP(w1, b1, w2, b2, lr)
+
+    mlp.train(X_train, np.array(result))
+    solution = mlp.predict(X_test)
+    print(solution, 'For Layer: ', layerSize)
+
 # Get training images with HOG features
 training_images, result = importTrainingImages()
 X_train = performHOGOperations(training_images)
@@ -398,19 +427,18 @@ X_train = performHOGOperations(training_images)
 testing_images = importTestingImages()
 X_test = performHOGOperations(testing_images)
 
-lr = .0001
+prediction(X_train.shape[1], X_train, X_test, result, 500)
+prediction(X_train.shape[1], X_train, X_test, result, 500)
+prediction(X_train.shape[1], X_train, X_test, result, 500)
+prediction(X_train.shape[1], X_train, X_test, result, 500)
+prediction(X_train.shape[1], X_train, X_test, result, 500)
+prediction(X_train.shape[1], X_train, X_test, result, 500)
+prediction(X_train.shape[1], X_train, X_test, result, 500)
+prediction(X_train.shape[1], X_train, X_test, result, 500)
+prediction(X_train.shape[1], X_train, X_test, result, 500)
+prediction(X_train.shape[1], X_train, X_test, result, 500)
 
-w1 = np.random.normal(0, .1, size=(X_train.shape[1], 500))
-b1 = np.random.normal(0, .1, size=(1, 500))
 
-w2 = np.random.normal(0, .1, size=(500, 1))
-b2 = np.random.normal(0, .1, size=(1, 1))
-
-mlp = MLP(w1, b1, w2, b2, lr)
-
-mlp.train(X_train, np.array(result))
-solution = mlp.predict(X_test)
-print(solution)
 
 
 
