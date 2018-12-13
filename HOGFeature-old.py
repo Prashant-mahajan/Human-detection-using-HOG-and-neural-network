@@ -149,8 +149,6 @@ def histogramOfGradients(image, gradient, gradientAngle):
             for i in range(row, row + 16, 8):
                 for j in range(col, col + 16, 8):
 
-                    if gradientAngle[i][j] >= 170:
-                        gradientAngle[i][j] -= 180
                     histogramArray.append(getHistogramOfBin(i, j, gradientAngle, gradient))
                     counter += 1
                     if counter % 4 == 0:
@@ -170,6 +168,7 @@ def histogramOfGradients(image, gradient, gradientAngle):
 
 
 def getHistogramOfBin(i, j, gradientAngle, gradient):
+
     # Computes the 9 element 1-D array of bins
     d = [0, 20, 40, 60, 80, 100, 120, 140, 160]
     histogramArray = np.zeros(shape=(1, 9))
@@ -177,21 +176,34 @@ def getHistogramOfBin(i, j, gradientAngle, gradient):
     for row in range(i, i + 8):
         for col in range(j, j + 8):
             angle = gradientAngle[row, col]
-            if angle not in d:
+
+            if angle >= 170:
+                angle -= 180
+
+            if angle in d:
+                histogramArray[0, d.index(angle)] += gradient[row, col]
+            else:
                 if angle > 160:
-                    high = 160
-                    low = 0
-                    weightedHigh, weightedLow = getWeighted(angle, high, low)
-                    histogramArray[0, d.index(low)] += gradient[row, col] * weightedLow
-                    histogramArray[0, d.index(high)] += gradient[row, col] * weightedHigh
+                    high = 1 - ((180 - angle) / 20)
+                    low = 1 - ((angle - 160) / 20)
+
+                    histogramArray[0, 8] += gradient * high
+                    histogramArray[0, 0] += gradient * low
+
+                elif angle < 0:
+                    high = 1 - ((abs(angle)) / 20)
+                    low = 1 - ((160 + angle) / 20)
+
+                    histogramArray[0, 8] += gradient * high
+                    histogramArray[0, 0] += gradient * low
+
                 else:
                     high = ceil_key(angle)
                     low = floor_key(angle)
                     weightedHigh, weightedLow = getWeighted(angle, high, low)
                     histogramArray[0, d.index(low)] += gradient[row, col] * weightedLow
                     histogramArray[0, d.index(high)] += gradient[row, col] * weightedHigh
-            else:
-                histogramArray[0, d.index(angle)] += gradient[row, col]
+
     return histogramArray
 
 def l2Normalized (histogramArray):
@@ -203,28 +215,33 @@ def l2Normalized (histogramArray):
     return histogramArray
 
 def getWeighted(angle, high, low):
-    weightedHigh = 1 - ((high - angle) / (high - low))
-    weightedLow = 1 - ((angle - low) / (high - low))
+    # Get weighted values of the angle to distribute the magnitude accordingly
+    weightedHigh = 1 - ((high - angle) / 20)
+    weightedLow = 1 - ((angle - low) / 20)
     return weightedHigh, weightedLow
 
 def floor_key(key):
+    # Finds closet smaller bin to given angle
     d = [0, 20, 40, 60, 80, 100, 120, 140, 160]
     if key in d:
         return key
     return max(k for k in d if k <= key)
 
 def ceil_key(key):
+    # Finds closest larger bin to given angle
     d = [0, 20, 40, 60, 80, 100, 120, 140, 160]
     if key in d:
         return key
     return min(k for k in d if k >= key)
 
 def normalizeHOG(gradient):
+    # Normalizing HOG
     gradient = np.array(gradient)
     gradient = ((gradient - np.min(gradient))/np.ptp(gradient))
     return gradient
 
 def normalize(gradient):
+    # Gradient normalization
     gradient = np.array(gradient)
     gradient = ((gradient - np.min(gradient))/np.ptp(gradient))*255
     return gradient
@@ -312,7 +329,6 @@ def liesInUnderRegion(imgArr, i, j):
 
 
 def prewittAtX(imageData, row, column):
-    sum = 0
     prewittX = (1.0 / 3.0) * np.array([[-1, 0, 1],
                                        [-1, 0, 1],
                                        [-1, 0, 1]])
@@ -324,7 +340,6 @@ def prewittAtX(imageData, row, column):
 
 
 def prewittAtY(imageData, row, column):
-    sum = 0
     prewittY = (1.0 / 3.0) * np.array([[1, 1, 1],
                                        [0, 0, 0],
                                        [-1, -1, -1]])
@@ -335,6 +350,7 @@ def prewittAtY(imageData, row, column):
     return vertical
 
 def convertImage(img):
+    # Convert image to gray scale using given formula
     R = img[:, :, 0]
     G = img[:, :, 1]
     B = img[:, :, 2]
@@ -342,6 +358,7 @@ def convertImage(img):
     return grayImage
 
 def importTrainingImages():
+    # Import training images from the folder
     image_list = []
     result = []
 
@@ -360,6 +377,7 @@ def importTrainingImages():
     return image_list, result
 
 def importTestingImages():
+    # Import testing images from the folder
     testImageList = []
     for filename in glob.glob('Human/Test_Positive/*.bmp'):
         im = cv2.imread(filename)
@@ -374,6 +392,7 @@ def importTestingImages():
     return testImageList
 
 def performHOGOperations(images):
+    # Performs HOG operations on imported images
     X_train = []
 
     for img in images:
@@ -404,17 +423,21 @@ def performHOGOperations(images):
     return X_train
 
 def prediction(N, X_train, X_test, result, layerSize):
+
+    # Learning rate
     lr = .0005
 
     # Input layer
     w1 = np.random.normal(0, .1, size=(N, layerSize))
     b1 = np.random.normal(0, .1, size=(1, layerSize))
 
+    # Hidden Layer
     w2 = np.random.normal(0, .1, size=(layerSize, 1))
     b2 = np.random.normal(0, .1, size=(1, 1))
 
     mlp = MLP(w1, b1, w2, b2, lr)
 
+    # Train the network
     mlp.train(X_train, np.array(result))
     solution = mlp.predict(X_test)
     print(solution, 'For Layer: ', layerSize)
