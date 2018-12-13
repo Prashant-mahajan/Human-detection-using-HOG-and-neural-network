@@ -131,7 +131,6 @@ def histogramOfGradients(image, gradient, gradientAngle):
     histogramArray = []
     result = []
     counter = 0
-    d = [0, 20, 40, 60, 80, 100, 120, 140, 160]
 
     for row in range(0, height - 8, 8):
         for col in range(0, width - 8, 8):
@@ -139,8 +138,8 @@ def histogramOfGradients(image, gradient, gradientAngle):
             for i in range(row, row + 16, 8):
                 for j in range(col, col + 16, 8):
                     # TODO: check if greater than 170 or 180 ?
-                    # if gradientAngle[i][j] >= 170:                 # <---------------
-                    #     gradientAngle[i][j] -= 180
+                    if gradientAngle[i][j] >= 170:                 # <---------------
+                        gradientAngle[i][j] -= 180
                     histogramArray.append(getHistogramOfBin(i, j, gradientAngle, gradient))
                     counter += 1
                     if counter % 4 == 0:
@@ -301,6 +300,9 @@ def liesInUnderRegion(imgArr, i, j):
 
 def prewittAtX(imageData, row, column):
     sum = 0
+    prewittX = (1.0 / 3.0) * np.array([[-1, 0, 1],
+                                       [-1, 0, 1],
+                                       [-1, 0, 1]])
     horizontal = 0
     for i in range(0, 3):
         for j in range(0, 3):
@@ -310,6 +312,9 @@ def prewittAtX(imageData, row, column):
 
 def prewittAtY(imageData, row, column):
     sum = 0
+    prewittY = (1.0 / 3.0) * np.array([[1, 1, 1],
+                                       [0, 0, 0],
+                                       [-1, -1, -1]])
     vertical = 0
     for i in range(0, 3):
         for j in range(0, 3):
@@ -359,13 +364,6 @@ def performHOGOperations(images):
     X_train = []
 
     for img in images:
-        prewittX = (1.0 / 3.0) * np.array([[-1, 0, 1],
-                                           [-1, 0, 1],
-                                           [-1, 0, 1]])
-
-        prewittY = (1.0 / 3.0) * np.array([[1, 1, 1],
-                                           [0, 0, 0],
-                                           [-1, -1, -1]])
 
         height = img.shape[0]
         width = img.shape[1]
@@ -392,57 +390,28 @@ def performHOGOperations(images):
 
     return X_train
 
+# Get training images with HOG features
+training_images, result = importTrainingImages()
+X_train = performHOGOperations(training_images)
+
+# Get testing images with HOG feature
+testing_images = importTestingImages()
+X_test = performHOGOperations(testing_images)
+
 lr = .0001
 
-w1 = np.random.normal(0, .1, size=(X_train.shape[1], 750))
-b1 = np.random.normal(0, .1, size=(1, 750))
+w1 = np.random.normal(0, .1, size=(X_train.shape[1], 500))
+b1 = np.random.normal(0, .1, size=(1, 500))
 
-w2 = np.random.normal(0, .1, size=(750, 1))
+w2 = np.random.normal(0, .1, size=(500, 1))
 b2 = np.random.normal(0, .1, size=(1, 1))
 
 mlp = MLP(w1, b1, w2, b2, lr)
 
-X_train = performHOGOperations()
-
 mlp.train(X_train, np.array(result))
-solution = mlp.predict(X_train)
+solution = mlp.predict(X_test)
 print(solution)
 
 
 
-
-
-
-# X_train = []
-# for img in image_list:
-#
-#     prewittX = (1.0 / 3.0) * np.array([[-1, 0, 1],
-#                                        [-1, 0, 1],
-#                                        [-1, 0, 1]])
-#
-#     prewittY = (1.0 / 3.0) * np.array([[1, 1, 1],
-#                                        [0, 0, 0],
-#                                        [-1, -1, -1]])
-#
-#     height = img.shape[0]
-#     width = img.shape[1]
-#
-#     # Normalized Horizontal Gradient
-#     Gx = normalize(getGradientX(img, height, width))
-#     cv2.imwrite('XGradient.jpg', Gx)
-#
-#     # Normalized Vertical Gradient
-#     Gy = normalize(getGradientY(img, height, width))
-#     cv2.imwrite('YGradient.jpg', Gy)
-#
-#     # Normalized Edge Magnitude
-#     gradient = normalize(getMagnitude(Gx, Gy, height, width))
-#     cv2.imwrite('Gradient.jpg', gradient)
-#
-#     # Edge angle
-#     gradientAngle = getAngle(Gx, Gy, height, width)
-#
-#     X_train.append(normalizeHOG(np.array(histogramOfGradients(img, gradient, gradientAngle))))
-# X_train = np.array(X_train)
-# X_train = X_train.reshape(X_train.shape[0],X_train.shape[2])
 
