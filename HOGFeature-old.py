@@ -41,7 +41,7 @@ class MLP:
                 pred = self.a2.forward(pred)
 
                 # Update loss values
-                loss = self.MSE(pred, yi)
+                currentError += self.MSE(pred, yi)
 
                 # Backward pass to update weights
                 grad = self.MSEGrad(pred, yi)
@@ -50,13 +50,13 @@ class MLP:
                 grad = self.a1.backward(grad)
                 self.l1.backward(grad)
 
-                currentError += loss
+                # currentError += loss
 
             error = currentError / 20
             differenceInError = (prevError - error)
 
             # Stop the model if error is not updating
-            if 0 < differenceInError < 0.0005:
+            if 0 < differenceInError < 0.0002:
                 break
             prevError = error
 
@@ -119,7 +119,7 @@ class ReLU:
 
     # Perfrom backward update which will discard all the inputs except > 0
     def backward(self, gradients):
-        gradients = gradients * (self.input)
+        gradients = gradients * self.input
         gradients = self.getReLU(gradients)
 
         gradients[gradients > 0] = 1
@@ -226,22 +226,18 @@ def getWeighted(angle, high, low):
 def floor_key(key):
     # Finds closet smaller bin to given angle
     d = [0, 20, 40, 60, 80, 100, 120, 140, 160]
-    if key in d:
-        return key
-    return max(k for k in d if k <= key)
+    return max(k for k in d if k <= key)                    # <---------------
 
 def ceil_key(key):
     # Finds closest larger bin to given angle
-    d = [0, 20, 40, 60, 80, 100, 120, 140, 160]
-    if key in d:
-        return key
+    d = [0, 20, 40, 60, 80, 100, 120, 140, 160]                 # <-------------
     return min(k for k in d if k >= key)
 
-def normalizeHOG(gradient):
-    # Normalizing HOG
-    gradient = np.array(gradient)
-    gradient = ((gradient - np.min(gradient))/np.ptp(gradient))
-    return gradient
+# def normalizeHOG(gradient):                   # <--------------
+#     # Normalizing HOG
+#     gradient = np.array(gradient)
+#     gradient = ((gradient - np.min(gradient))/np.ptp(gradient))
+#     return gradient
 
 def normalize(gradient):
     # Gradient normalization
@@ -418,7 +414,7 @@ def performHOGOperations(images):
         # Edge angle
         gradientAngle = getAngle(Gx, Gy, height, width)
 
-        X_train.append(normalizeHOG(np.array(histogramOfGradients(img, gradient, gradientAngle))))
+        X_train.append(normalize(np.array(histogramOfGradients(img, gradient, gradientAngle))))         # <------
 
 
     X_train = np.array(X_train)
@@ -456,14 +452,14 @@ testing_images = importTestingImages()
 X_test = performHOGOperations(testing_images)
 
 prediction(X_train.shape[1], X_train, X_test, result, 500)
-prediction(X_train.shape[1], X_train, X_test, result, 500)
-prediction(X_train.shape[1], X_train, X_test, result, 500)
-prediction(X_train.shape[1], X_train, X_test, result, 500)
-prediction(X_train.shape[1], X_train, X_test, result, 500)
-prediction(X_train.shape[1], X_train, X_test, result, 500)
-prediction(X_train.shape[1], X_train, X_test, result, 500)
-prediction(X_train.shape[1], X_train, X_test, result, 500)
-prediction(X_train.shape[1], X_train, X_test, result, 500)
-prediction(X_train.shape[1], X_train, X_test, result, 500)
+# prediction(X_train.shape[1], X_train, X_test, result, 500)
+# prediction(X_train.shape[1], X_train, X_test, result, 500)
+# prediction(X_train.shape[1], X_train, X_test, result, 500)
+# prediction(X_train.shape[1], X_train, X_test, result, 500)
+# prediction(X_train.shape[1], X_train, X_test, result, 500)
+# prediction(X_train.shape[1], X_train, X_test, result, 500)
+# prediction(X_train.shape[1], X_train, X_test, result, 500)
+# prediction(X_train.shape[1], X_train, X_test, result, 500)
+# prediction(X_train.shape[1], X_train, X_test, result, 500)
 
 
