@@ -1,8 +1,8 @@
-import numpy as np
-import cv2
-import math
-import glob
 import sys
+import math
+import cv2
+import numpy as np
+import glob
 
 class MLP:
     def __init__(self, w1, b1, w2, b2, lr):
@@ -56,7 +56,7 @@ class MLP:
             differenceInError = (prevError - error)
 
             # Stop the model if error is not updating
-            if 0 < differenceInError < 0.0002:
+            if 0 < differenceInError < 0.0001:
                 break
             prevError = error
 
@@ -66,7 +66,7 @@ class MLP:
         pred = self.a1.forward(pred)
         pred = self.l2.forward(pred)
         pred = self.a2.forward(pred)
-        # print(pred)
+        print(pred)
         pred = np.round(pred)
         return np.ravel(pred)
 
@@ -131,6 +131,17 @@ class ReLU:
         result = np.maximum(n, 0)
         return result
 
+def floor_key(key):
+    # Finds closet smaller bin to given angle
+    d = [0, 20, 40, 60, 80, 100, 120, 140, 160]
+    return max(k for k in d if k <= key)
+
+def ceil_key(key):
+    # Finds closest larger bin to given angle
+    d = [0, 20, 40, 60, 80, 100, 120, 140, 160]
+
+    return min(k for k in d if k >= key)
+
 def histogramOfGradients(image, gradient, gradientAngle):
     """
     This function returns an array containing histogram of gradients
@@ -167,16 +178,14 @@ def histogramOfGradients(image, gradient, gradientAngle):
 
     return result
 
-
 def getHistogramOfBin(i, j, gradientAngle, gradient):
-
     # Computes the 9 element 1-D array of bins
     d = [0, 20, 40, 60, 80, 100, 120, 140, 160]
     histogramArray = np.zeros(shape=(1, 9))
 
     for row in range(i, i + 8):
         for col in range(j, j + 8):
-            angle = gradientAngle[row, col]
+            angle = gradientAngle[row][col]
 
             if angle >= 170:
                 angle -= 180
@@ -188,26 +197,30 @@ def getHistogramOfBin(i, j, gradientAngle, gradient):
                     high = 1 - ((180 - angle) / 20)
                     low = 1 - ((angle - 160) / 20)
 
-                    histogramArray[0, 8] += gradient * high
-                    histogramArray[0, 0] += gradient * low
+                    histogramArray[0, 8] += gradient[row][col] * high
+                    histogramArray[0, 0] += gradient[row][col] * low
 
                 elif angle < 0:
                     high = 1 - ((abs(angle)) / 20)
                     low = 1 - ((160 + angle) / 20)
 
-                    histogramArray[0, 0] += gradient * high             # <---------------
-                    histogramArray[0, 8] += gradient * low
+                    histogramArray[0, 0] += gradient[row][col] * high
+                    histogramArray[0, 8] += gradient[row][col] * low
 
                 else:
                     high = ceil_key(angle)
                     low = floor_key(angle)
-
                     weightedHigh, weightedLow = getWeighted(angle, high, low)
-
-                    histogramArray[0, d.index(low)] += gradient[row][col] * weightedLow
-                    histogramArray[0, d.index(high)] += gradient[row][col] * weightedHigh
+                    histogramArray[0, d.index(low)] += gradient[row, col] * weightedLow
+                    histogramArray[0, d.index(high)] += gradient[row, col] * weightedHigh
 
     return histogramArray
+
+def getWeighted(angle, high, low):
+    # Get weighted values of the angle to distribute the magnitude accordingly
+    weightedHigh = 1 - ((high - angle) / (high-low))
+    weightedLow = 1 - ((angle - low) / (high-low))
+    return weightedHigh, weightedLow
 
 def l2Normalized (histogramArray):
     array = np.square(histogramArray)
@@ -216,34 +229,6 @@ def l2Normalized (histogramArray):
     if dist != 0.0:
         histogramArray = histogramArray / dist
     return histogramArray
-
-def getWeighted(angle, high, low):
-    # Get weighted values of the angle to distribute the magnitude accordingly
-    weightedHigh = 1 - ((high - angle) / (high-low))                    # <----------------
-    weightedLow = 1 - ((angle - low) / (high-low))
-    return weightedHigh, weightedLow
-
-def floor_key(key):
-    # Finds closet smaller bin to given angle
-    d = [0, 20, 40, 60, 80, 100, 120, 140, 160]
-    return max(k for k in d if k <= key)                    # <---------------
-
-def ceil_key(key):
-    # Finds closest larger bin to given angle
-    d = [0, 20, 40, 60, 80, 100, 120, 140, 160]                 # <-------------
-    return min(k for k in d if k >= key)
-
-# def normalizeHOG(gradient):                   # <--------------
-#     # Normalizing HOG
-#     gradient = np.array(gradient)
-#     gradient = ((gradient - np.min(gradient))/np.ptp(gradient))
-#     return gradient
-
-def normalize(gradient):
-    # Gradient normalization
-    gradient = np.array(gradient)
-    gradient = ((gradient - np.min(gradient))/np.ptp(gradient))*255
-    return gradient
 
 def getGradientX(imgArr, height, width):
     """
@@ -254,30 +239,42 @@ def getGradientX(imgArr, height, width):
     :return: Array representing the gradient
     """
     imageData = np.empty(shape=(height, width))
-    for i in range(3, height - 5):
-        for j in range(3, imgArr[i].size - 5):
-            if liesInUnderRegion(imgArr, i, j):
-                imageData[i + 1][j + 1] = None
-            else:
-                imageData[i + 1][j + 1] = prewittAtX(imgArr, i, j)
+    for i in range(1, height - 1):
+        for j in range(1, imgArr[i].size - 1):
+            imageData[i][j] = prewittAtX(imgArr, i, j)
 
-    return abs(imageData)
+    return imageData
 
+def prewittAtX(imageData, row, column):
+    prewittX = np.array([[-1, 0, 1],
+                         [-1, 0, 1],
+                         [-1, 0, 1]])
+    horizontal = 0
+    for i in range(row-1, row+2):
+        for j in range(column-1, column+2):
+            horizontal += imageData[i][j] * prewittX[i-row+1][j-column+1]
+    return horizontal
 
 def getGradientY(imgArr, height, width):
     """
     Similar to the getGradientX function for Y
     """
     imageData = np.empty(shape=(height, width))
-    for i in range(3, height - 5):
-        for j in range(3, imgArr[i].size - 5):
-            if liesInUnderRegion(imgArr, i, j):
-                imageData[i + 1][j + 1] = None
-            else:
-                imageData[i + 1][j + 1] = prewittAtY(imgArr, i, j)
+    for i in range(1, height - 1):
+        for j in range(1, imgArr[i].size - 1):
+            imageData[i][j] = prewittAtY(imgArr, i, j)
 
-    return abs(imageData)
+    return imageData
 
+def prewittAtY(imageData, row, column):
+    prewittY = np.array([[1, 1, 1],
+                         [0, 0, 0],
+                         [-1, -1, -1]])
+    vertical = 0
+    for i in range(row-1, row+2):
+        for j in range(column-1, column+2):
+            vertical += imageData[i][j] * prewittY[i-row+1][j-column+1]
+    return vertical
 
 def getMagnitude(Gx, Gy, height, width):
     """
@@ -289,11 +286,19 @@ def getMagnitude(Gx, Gy, height, width):
     :return: array representing edge magnitude
     """
     gradientData = np.empty(shape=(height, width))
-    for row in range(height):
-        for column in range(width):
-            gradientData[row][column] = ((Gx[row][column] ** 2 + Gy[row][column] ** 2) ** 0.5) / 1.4142
+    # for row in range(height):
+    #     for column in range(width):
+    #         gradientData[row][column] = ((Gx[row][column] ** 2 + Gy[row][column] ** 2) ** 0.5) / 1.4142
+
+    gradientData = np.sqrt(np.square(Gx) + np.square(Gy))
+
     return gradientData
 
+def normalize(gradient):
+    # Gradient normalization
+    # gradient = np.array(gradient)
+    gradient = ((gradient - np.min(gradient))/np.ptp(gradient))*255
+    return np.round(gradient)
 
 def getAngle(Gx, Gy, height, width):
     """
@@ -305,48 +310,20 @@ def getAngle(Gx, Gy, height, width):
     :return: integer array representing the edge angle
     """
     gradientData = np.empty(shape=(height, width))
-    angle = 0
+    # angle = 0
     for i in range(height):
         for j in range(width):
             if Gx[i][j] == 0:
                 if Gy[i][j] > 0:
                     angle = 90
                 else:
-                    angle = -90
+                    angle = 0
             else:
                 angle = math.degrees(math.atan(Gy[i][j] / Gx[i][j]))
-            if angle < 0:
-                angle += 360
+                if angle < 0:
+                    angle += 360
             gradientData[i][j] = angle
     return gradientData
-
-
-def liesInUnderRegion(imgArr, i, j):
-    return imgArr[i][j] == None or imgArr[i][j + 1] == None or imgArr[i][j - 1] == None or imgArr[i + 1][j] == None or \
-           imgArr[i + 1][j + 1] == None or imgArr[i + 1][j - 1] == None or imgArr[i - 1][j] == None or \
-           imgArr[i - 1][j + 1] == None or imgArr[i - 1][j - 1] == None
-
-
-def prewittAtX(imageData, row, column):
-    prewittX = (1.0 / 3.0) * np.array([[-1, 0, 1],
-                                       [-1, 0, 1],
-                                       [-1, 0, 1]])
-    horizontal = 0
-    for i in range(0, 3):
-        for j in range(0, 3):
-            horizontal += imageData[row + i, column + j] * prewittX[i, j]
-    return horizontal
-
-
-def prewittAtY(imageData, row, column):
-    prewittY = (1.0 / 3.0) * np.array([[1, 1, 1],
-                                       [0, 0, 0],
-                                       [-1, -1, -1]])
-    vertical = 0
-    for i in range(0, 3):
-        for j in range(0, 3):
-            vertical += imageData[row + i, column + j] * prewittY[i, j]
-    return vertical
 
 def convertImage(img):
     # Convert image to gray scale using given formula
@@ -354,7 +331,7 @@ def convertImage(img):
     G = img[:, :, 1]
     B = img[:, :, 2]
     grayImage = R * 299./1000 + G * 587./1000 + B * 114./1000
-    return grayImage
+    return np.round(np.array(grayImage))
 
 def importTrainingImages():
     # Import training images from the folder
@@ -393,19 +370,20 @@ def importTestingImages():
 def performHOGOperations(images):
     # Performs HOG operations on imported images
     X_train = []
-    count = 0
+    # count = 0
+
+    file1 = open('Angle.txt', 'w')
+
     for img in images:
-        count += 1
+        # count += 1
         height = img.shape[0]
         width = img.shape[1]
 
         # Normalized Horizontal Gradient
-        Gx = normalize(getGradientX(img, height, width))
-        # cv2.imwrite(str(count)  + '_XGradient.jpg', Gx)
+        Gx = getGradientX(img, height, width)
 
         # Normalized Vertical Gradient
-        Gy = normalize(getGradientY(img, height, width))
-        # cv2.imwrite(str(count) + '_YGradient.jpg', Gy)
+        Gy = getGradientY(img, height, width)
 
         # Normalized Edge Magnitude
         gradient = normalize(getMagnitude(Gx, Gy, height, width))
@@ -414,14 +392,18 @@ def performHOGOperations(images):
         # Edge angle
         gradientAngle = getAngle(Gx, Gy, height, width)
 
-        X_train.append(normalize(np.array(histogramOfGradients(img, gradient, gradientAngle))))         # <------
+        for a in gradientAngle:
+            for b in a:
+                file1.write("%s\n" % b)
 
+        X_train.append(np.array(histogramOfGradients(img, gradient, gradientAngle)))
+
+        # X_train.append(normalizeHOG(np.array(histogramOfGradients(img, gradient, gradientAngle))))
 
     X_train = np.array(X_train)
     X_train = X_train.reshape(X_train.shape[0], X_train.shape[2])
 
     return X_train
-
 
 def prediction(N, X_train, X_test, result, layerSize):
 
@@ -441,25 +423,12 @@ def prediction(N, X_train, X_test, result, layerSize):
     # Train the network
     mlp.train(X_train, np.array(result))
     solution = mlp.predict(X_test)
-    print(solution, 'For Layer: ', layerSize)
+    print(solution, 'For Hidden Layers: ', layerSize)
 
 # Get training images with HOG features
 training_images, result = importTrainingImages()
 X_train = performHOGOperations(training_images)
-
 # Get testing images with HOG feature
 testing_images = importTestingImages()
 X_test = performHOGOperations(testing_images)
-
-prediction(X_train.shape[1], X_train, X_test, result, 500)
-# prediction(X_train.shape[1], X_train, X_test, result, 500)
-# prediction(X_train.shape[1], X_train, X_test, result, 500)
-# prediction(X_train.shape[1], X_train, X_test, result, 500)
-# prediction(X_train.shape[1], X_train, X_test, result, 500)
-# prediction(X_train.shape[1], X_train, X_test, result, 500)
-# prediction(X_train.shape[1], X_train, X_test, result, 500)
-# prediction(X_train.shape[1], X_train, X_test, result, 500)
-# prediction(X_train.shape[1], X_train, X_test, result, 500)
-# prediction(X_train.shape[1], X_train, X_test, result, 500)
-
-
+prediction(X_train.shape[1], X_train, X_test, result, 1000)
