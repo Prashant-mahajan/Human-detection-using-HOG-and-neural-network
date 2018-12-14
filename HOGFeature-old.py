@@ -66,9 +66,9 @@ class MLP:
         pred = self.a1.forward(pred)
         pred = self.l2.forward(pred)
         pred = self.a2.forward(pred)
+        # print(pred)
         pred = np.round(pred)
         return np.ravel(pred)
-
 
 class FCLayer:
 
@@ -164,6 +164,7 @@ def histogramOfGradients(image, gradient, gradientAngle):
     result = np.array(result)
     # Reshape in 1-D
     result = result.reshape(1, result.shape[0] * result.shape[2])
+
     return result
 
 
@@ -194,15 +195,17 @@ def getHistogramOfBin(i, j, gradientAngle, gradient):
                     high = 1 - ((abs(angle)) / 20)
                     low = 1 - ((160 + angle) / 20)
 
-                    histogramArray[0, 8] += gradient * high
-                    histogramArray[0, 0] += gradient * low
+                    histogramArray[0, 0] += gradient * high             # <---------------
+                    histogramArray[0, 8] += gradient * low
 
                 else:
                     high = ceil_key(angle)
                     low = floor_key(angle)
+
                     weightedHigh, weightedLow = getWeighted(angle, high, low)
-                    histogramArray[0, d.index(low)] += gradient[row, col] * weightedLow
-                    histogramArray[0, d.index(high)] += gradient[row, col] * weightedHigh
+
+                    histogramArray[0, d.index(low)] += gradient[row][col] * weightedLow
+                    histogramArray[0, d.index(high)] += gradient[row][col] * weightedHigh
 
     return histogramArray
 
@@ -216,8 +219,8 @@ def l2Normalized (histogramArray):
 
 def getWeighted(angle, high, low):
     # Get weighted values of the angle to distribute the magnitude accordingly
-    weightedHigh = 1 - ((high - angle) / 20)
-    weightedLow = 1 - ((angle - low) / 20)
+    weightedHigh = 1 - ((high - angle) / (high-low))                    # <----------------
+    weightedLow = 1 - ((angle - low) / (high-low))
     return weightedHigh, weightedLow
 
 def floor_key(key):
@@ -394,38 +397,40 @@ def importTestingImages():
 def performHOGOperations(images):
     # Performs HOG operations on imported images
     X_train = []
-
+    count = 0
     for img in images:
-
+        count += 1
         height = img.shape[0]
         width = img.shape[1]
 
         # Normalized Horizontal Gradient
         Gx = normalize(getGradientX(img, height, width))
-        cv2.imwrite('XGradient.jpg', Gx)
+        # cv2.imwrite(str(count)  + '_XGradient.jpg', Gx)
 
         # Normalized Vertical Gradient
         Gy = normalize(getGradientY(img, height, width))
-        cv2.imwrite('YGradient.jpg', Gy)
+        # cv2.imwrite(str(count) + '_YGradient.jpg', Gy)
 
         # Normalized Edge Magnitude
         gradient = normalize(getMagnitude(Gx, Gy, height, width))
-        cv2.imwrite('Gradient.jpg', gradient)
+        # cv2.imwrite(str(count) + '_Gradient.jpg', gradient)
 
         # Edge angle
         gradientAngle = getAngle(Gx, Gy, height, width)
 
         X_train.append(normalizeHOG(np.array(histogramOfGradients(img, gradient, gradientAngle))))
 
+
     X_train = np.array(X_train)
     X_train = X_train.reshape(X_train.shape[0], X_train.shape[2])
 
     return X_train
 
+
 def prediction(N, X_train, X_test, result, layerSize):
 
     # Learning rate
-    lr = .0005
+    lr = .0001
 
     # Input layer
     w1 = np.random.normal(0, .1, size=(N, layerSize))
@@ -460,9 +465,5 @@ prediction(X_train.shape[1], X_train, X_test, result, 500)
 prediction(X_train.shape[1], X_train, X_test, result, 500)
 prediction(X_train.shape[1], X_train, X_test, result, 500)
 prediction(X_train.shape[1], X_train, X_test, result, 500)
-
-
-
-
 
 
